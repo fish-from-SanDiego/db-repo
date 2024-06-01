@@ -1,0 +1,4 @@
+psycopg2==2.9.9
+packaging==24.0
+Faker==25.2.0
+phonenumbers==8.13.37

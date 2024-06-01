@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS employee_occupations(
+    occupation_id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    occupation_name VARCHAR(60) NOT NULL UNIQUE
+);

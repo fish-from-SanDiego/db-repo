@@ -1,0 +1,123 @@
+
+networks:
+    main-network:
+volumes:
+  db_setup_util_files:
+
+services:
+    etcd1: &etcd
+        image: ${PATRONI_IMAGE:-patroni}
+        networks: [ main-network ]
+        environment:
+            ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+            ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+            ETCD_INITIAL_CLUSTER: etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380
+            ETCD_INITIAL_CLUSTER_STATE: new
+            ETCD_INITIAL_CLUSTER_TOKEN: tutorial
+            ETCD_UNSUPPORTED_ARCH: arm64
+        container_name: etcd1
+        hostname: etcd1
+        command: etcd --name etcd1 --initial-advertise-peer-urls http://etcd1:2380
+
+    etcd2:
+        <<: *etcd
+        container_name: etcd2
+        hostname: etcd2
+        command: etcd --name etcd2 --initial-advertise-peer-urls http://etcd2:2380
+
+    etcd3:
+        <<: *etcd
+        container_name: etcd3
+        hostname: etcd3
+        command: etcd --name etcd3 --initial-advertise-peer-urls http://etcd3:2380
+
+    haproxy:
+        image: ${PATRONI_IMAGE:-patroni}
+        networks: [ main-network ]
+        env_file: patroni/docker/patroni.env
+        hostname: haproxy
+        container_name: haproxy
+        ports:
+            - "5000:5000"
+            - "5001:5001"
+        command: haproxy
+        environment: &haproxy_env
+            ETCDCTL_ENDPOINTS: http://etcd1:2379,http://etcd2:2379,http://etcd3:2379
+            PATRONI_ETCD3_HOSTS: "'etcd1:2379','etcd2:2379','etcd3:2379'"
+            PATRONI_SCOPE: docker
+            PGDATA: "/home/postgres/data"
+            
+
+    patroni1:
+        image: ${PATRONI_IMAGE:-patroni}
+        networks: [ main-network ]
+        env_file: patroni/docker/patroni.env
+        hostname: patroni1
+        container_name: patroni1
+        environment:
+            <<: *haproxy_env
+            PATRONI_NAME: patroni1
+
+    patroni2:
+        image: ${PATRONI_IMAGE:-patroni}
+        networks: [ main-network ]
+        env_file: patroni/docker/patroni.env
+        hostname: patroni2
+        container_name: patroni2
+        environment:
+            <<: *haproxy_env
+            PATRONI_NAME: patroni2
+
+    patroni3:
+        image: ${PATRONI_IMAGE:-patroni}
+        networks: [ main-network ]
+        env_file: patroni/docker/patroni.env
+        hostname: patroni3
+        container_name: patroni3
+        environment:
+            <<: *haproxy_env
+            PATRONI_NAME: patroni3
+
+    db-setup:
+        build:
+            args:
+                PY_IMAGE_TAG : ${PYTHON_IMAGE_TAG}
+            context: ./db_setup
+        networks: [ main-network ]
+        restart: no
+        depends_on:
+          - haproxy
+        volumes:
+            - ./db_setup/scripts:/usr/src/db_setup/scripts:ro
+            - db_setup_util_files:/usr/src/db_setup/util_files/
+        env_file:
+            - path: ./config/db.env
+            - path: ./config/setup.env
+        environment: &connect_env
+            HAPROXY_PRIMARY_PORT: ${HAPROXY_PRIMARY_PORT}
+            HAPROXY_REPLICAS_PORT: ${HAPROXY_REPLICAS_PORT}
+            DB_HOSTNAME: ${DB_HOSTNAME}
+            CREATE_ROLES: true
+
+    backups:
+        image: postgres:${POSTGRES_IMAGE_TAG}
+        networks: [ main-network ]
+        command: sh -c "/app/backup.sh"
+    # volumes:
+    #     - ./backups:/app/backups
+    #     - ./backup.sh:/app/backup.sh
+        depends_on:
+            db-setup:
+                condition: service_completed_successfully
+        # environment:
+
+    admin_gui:
+        image: adminer
+        container_name: admin_gui
+        restart: unless-stopped
+        depends_on: 
+        - haproxy
+        ports:
+        - 8080:8080
+        networks: [ main-network ]
+

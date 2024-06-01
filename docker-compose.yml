@@ -3,6 +3,7 @@ networks:
     main-network:
 volumes:
   db_setup_util_files:
+  backups-storage:
 
 services:
     etcd1: &etcd
@@ -97,19 +98,22 @@ services:
             HAPROXY_PRIMARY_PORT: ${HAPROXY_PRIMARY_PORT}
             HAPROXY_REPLICAS_PORT: ${HAPROXY_REPLICAS_PORT}
             DB_HOSTNAME: ${DB_HOSTNAME}
-            CREATE_ROLES: true
 
-    backups:
+    backups-and-util:
         image: postgres:${POSTGRES_IMAGE_TAG}
+        container_name: backups-and-util
         networks: [ main-network ]
-        command: sh -c "/app/backup.sh"
-    # volumes:
-    #     - ./backups:/app/backups
-    #     - ./backup.sh:/app/backup.sh
+        command: [ "bash", "-c", "/app/backups/do_backups.sh" ]
+        volumes:
+            - backups-storage:/backups_storage/
+            - ./backups/:/app/backups/:ro
         depends_on:
-            db-setup:
-                condition: service_completed_successfully
-        # environment:
+        - haproxy
+        environment:
+            <<: *connect_env
+        env_file:
+            - ./config/backups-and-util.env
+        restart: unless-stopped
 
     admin_gui:
         image: adminer

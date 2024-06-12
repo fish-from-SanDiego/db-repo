@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS employee_salary_index ON employees(salary)

@@ -1,0 +1,1 @@
+SELECT * FROM contracts_items WHERE item_id > 1500000

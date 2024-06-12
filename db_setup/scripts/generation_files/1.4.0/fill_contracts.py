@@ -30,13 +30,18 @@ def fill_contracts(connection, target_entries_count, min_transactions_per_contra
         cursor.execute("PREPARE insert_contract_employee (INTEGER, INTEGER) AS INSERT INTO employees_contracts(employee_id, contract_id) VALUES($1, $2)")
         cursor.execute("SELECT COUNT(*) FROM contracts")
         existing_items_count = cursor.fetchone()[0]
-    try:
-        entries_to_add = target_entries_count - existing_items_count
-        if entries_to_add <= 0:
-            return
-        fake = Faker()
-        client_ids = list(client_account_ids.keys())
-        for _ in range(entries_to_add):
+    
+    entries_to_add = target_entries_count - existing_items_count
+    if entries_to_add <= 0:
+        return
+    fake = Faker()
+    client_ids = list(client_account_ids.keys())
+    print(entries_to_add)
+    for i in range(entries_to_add):
+        try:
+            if i % 10000 == 0:
+                print(i)
+                connection.commit()
             begin_date = fake.date_between(start_date=min_start_date)
             end_date = fake.date_between(start_date=datetime.now(), end_date = max_end_date)
             actual_end_date = random.choice([None, fake.date_between(start_date=begin_date, end_date = datetime.now())])
@@ -71,8 +76,14 @@ def fill_contracts(connection, target_entries_count, min_transactions_per_contra
                 with connection.cursor() as cursor:
                     execute_values(cursor, "INSERT INTO account_transactions(transaction_time, transaction_sum, company_account_id,     client_account_id, transaction_contract_id, is_income) VALUES %s", transaction_entries)
 
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        connection.rollback()
-        raise e
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            connection.rollback()
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT COUNT(*) FROM contracts")
+                existing_items_count = cursor.fetchone()[0]
+                entries_to_add = target_entries_count - existing_items_count
+                i = 0
+
+
     connection.commit()

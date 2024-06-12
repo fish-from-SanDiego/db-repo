@@ -1,0 +1,1 @@
+SELECT e.employee_id FROM employees e WHERE e.salary BETWEEN 0 AND 100;

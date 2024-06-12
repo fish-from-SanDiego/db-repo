@@ -1,0 +1,20 @@
+
+networks:
+    main-network:
+    db-repo_main-network:
+        external: true
+
+services:
+    explain:
+        build:
+            args:
+                PY_IMAGE_TAG : ${PYTHON_IMAGE_TAG}
+            context: ./
+        networks: [ db-repo_main-network ]
+        restart: no
+        volumes:
+            - ./:/usr/src/explain/
+        env_file:
+            - path: ./config/explain.env
+
+    

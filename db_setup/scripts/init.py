@@ -50,20 +50,57 @@ BEGIN
 END
 $do$;""")
     except Exception as e:
+        print(e)
         print("failed to execute init file")
         sys.exit(1)
-
-connection = psycopg2.connect(
+for i in range(max_try_attempts):
+    print(f"attempt {i+1} to connect to database")
+    try:
+        connection = psycopg2.connect(
             dbname=pg_db_name,
             user=db_creator_name,
             password=db_creator_password,
             host=hostname,
             port=port
         )
-connection.autocommit=True
+    except Exception as e:
+        print(e)
+        print(f"attempt {i+1} to connect failed")
+        connection = None
+    if connection != None:
+        print(f"attempt {i+1} to connect succeeded")
+        break
+    time.sleep(cooldown_time)
+if connection == None:
+    sys.exit(1)
+connection.autocommit = True
 
 with connection.cursor() as cursor:
     cursor.execute("SELECT 1 FROM pg_catalog.pg_database WHERE datname = %s", (main_db_name,))
     exists = cursor.fetchone()
     if not exists:
         cursor.execute(f"CREATE DATABASE {main_db_name};")
+
+for i in range(max_try_attempts):
+    print(f"attempt {i+1} to connect to database")
+    try:
+        connection = psycopg2.connect(
+            dbname=main_db_name,
+            user=pg_user,
+            password=pg_password,
+            host=hostname,
+            port=port
+        )
+    except Exception as e:
+        print(e)
+        print(f"attempt {i+1} to connect failed")
+        connection = None
+    if connection != None:
+        print(f"attempt {i+1} to connect succeeded")
+        break
+    time.sleep(cooldown_time)
+if connection == None:
+    sys.exit(1)
+connection.autocommit = True
+with connection.cursor() as cursor:
+    cursor.execute("CREATE EXTENSION IF NOT EXISTS pg_stat_statements;")

@@ -102,15 +102,16 @@ services:
       HAPROXY_REPLICAS_PORT: ${HAPROXY_REPLICAS_PORT}
       DB_HOSTNAME: ${DB_HOSTNAME}
 
-  postgres-exporter:
+  postgres-exporter-master: &postgres_exporter
     image: bitnami/postgres-exporter:${POSTGRES_EXPORTER_IMAGE_TAG}
-    container_name: postgres-exporter
-    hostname: postgres-exporter
+    container_name: postgres-exporter-1
+    hostname: postgres-exporter-1
     environment:
         DATA_SOURCE_NAME: "postgresql://${POSTGRES_EXPORTER_USER}:${POSTGRES_EXPORTER_PASSWORD}@${DB_HOSTNAME}:${HAPROXY_PRIMARY_PORT}/${POSTGRES_EXPORTER_DB_NAME}?sslmode=disable"
     command:
       - '--collector.postmaster'
       - '--collector.stat_statements'
+      - '--collector.statio_user_indexes'
     ports:
       - 9187:9187
     depends_on:
@@ -118,6 +119,33 @@ services:
         condition: service_started
         # condition: service_completed_successfully
     networks: [ main-network ]
+
+  postgres-exporter-patroni1: 
+    <<: *postgres_exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_EXPORTER_USER}:${POSTGRES_EXPORTER_PASSWORD}@patroni1:5432/${POSTGRES_EXPORTER_DB_NAME}?sslmode=disable"
+    container_name: postgres-exporter-patroni1
+    hostname: postgres-exporter-patroni1
+    ports:
+     - 9188:9187
+
+  postgres-exporter-patroni2: 
+    <<: *postgres_exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_EXPORTER_USER}:${POSTGRES_EXPORTER_PASSWORD}@patroni2:5432/${POSTGRES_EXPORTER_DB_NAME}?sslmode=disable"
+    container_name: postgres-exporter-patroni2
+    hostname: postgres-exporter-patroni2
+    ports:
+     - 9189:9187
+
+  postgres-exporter-patroni3: 
+    <<: *postgres_exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_EXPORTER_USER}:${POSTGRES_EXPORTER_PASSWORD}@patroni3:5432/${POSTGRES_EXPORTER_DB_NAME}?sslmode=disable"
+    container_name: postgres-exporter-patroni3
+    hostname: postgres-exporter-patroni3
+    ports:
+     - 9190:9187
 
   prometheus:
     image: prom/prometheus:${PROMETHEUS_IMAGE_TAG}
@@ -133,7 +161,10 @@ services:
     ports:
       - 9090:9090
     depends_on:
-      - postgres-exporter
+      - postgres-exporter-master
+      - postgres-exporter-patroni1
+      - postgres-exporter-patroni2
+      - postgres-exporter-patroni3
     restart: unless-stopped
 
   grafana:

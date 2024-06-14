@@ -7,4 +7,4 @@ scrape_configs:
   #     - targets: ["localhost:9090"]
   - job_name: "postgres"
     static_configs:
-      - targets: ["postgres-exporter:9187"]
+      - targets: ["postgres-exporter-master:9187", "postgres-exporter-patroni1:9187", "postgres-exporter-patroni2:9187" , "postgres-exporter-patroni3:9187"]
